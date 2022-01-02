@@ -1,6 +1,8 @@
 # RL_torch
 basic DRL methods based on torch
 
+env:gym
+
 ## value-based
 
  - Q-learning
