@@ -1,5 +1,5 @@
-# RL_torch
-basic DRL methods based on torch
+# RL_toy_model
+basic RL methods based on torch
 
 env:gym
 
