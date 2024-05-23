@@ -7,7 +7,7 @@ from collections import deque
 
 class SumTree():
     '''
-    建立 tree 和 data,
+    Build tree 和 data,
     因为 SumTree 有特殊的数据结构,
     所以两者都能用一个一维 np.array 来存储
 

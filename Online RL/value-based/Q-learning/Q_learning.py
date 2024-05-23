@@ -4,7 +4,7 @@ import pandas as pd
 class Qlearning():
 
     def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9, mode='train'):
-        '''初始化'''
+        '''initialize'''
         self.actions = actions
         self.lr = learning_rate
         self.gamma = reward_decay
@@ -15,11 +15,11 @@ class Qlearning():
         self.mode = mode
 
     def choose_action(self, obs):
-        '''策略更新，选择动作'''
+        '''Choose next action with current policy'''
 
         self.check_state_exist(obs)
         # epsilon-greedy
-        if self.mode == 'train' and np.random.uniform() < self.eps:    # samle(随机)
+        if self.mode == 'train' and np.random.uniform() < self.eps:    # random samle
             action = np.random.choice(self.actions)
         else:
             state_action = np.array(self.q_table.loc[obs, :])   # sample(agent) / predict
@@ -29,13 +29,13 @@ class Qlearning():
 
     def learn(self, state, action, reward, state_, done):
         '''
-        策略更新
+        Update Policy
         args:
-            state   当前状态 = obs
-            action  原策略选择动作
-            reward  原策略选择动作的奖赏
-            state_  原策略动作影响得到的下一个状态
-            done    是否为策略状态的最后一帧
+            state   current state = obs
+            action  from current policy
+            reward  from env
+            state_  next state
+            done    if finish
         '''
 
         self.check_state_exist(state_)
@@ -47,7 +47,7 @@ class Qlearning():
             self.q_table.loc[state, action] += self.lr * (reward + self.gamma * self.q_table.loc[state_].max() - q_pred)
 
     def check_state_exist(self, state):
-        '''检测qtable是否存在观测状态'''
+        '''check existence of states in qtable'''
 
         if state not in self.q_table.index:
             self.q_table = self.q_table.append(

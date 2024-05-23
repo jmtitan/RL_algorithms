@@ -51,10 +51,10 @@ class Net(nn.Module):
         return qvalue
 
 
-class Double_DQN:
+class DQN:
     
-    def __init__(self,
-                n_states, 
+    def __init__(self, 
+                n_states,
                 n_actions,
                 learning_rate=0.01,
                 reward_decay=0.9,
@@ -67,7 +67,7 @@ class Double_DQN:
         self.n_actions = n_actions
         self.lr= learning_rate
         self.gamma = reward_decay
-                
+        
         self.eps_begin = 1 - eps_greedy
         self.eps_end = eps_greedy
         self.eps = 0.1
@@ -78,9 +78,7 @@ class Double_DQN:
         self.device = device
 
         self.eval_net = Net(n_states, n_actions).to(device)
-        self.eval_net.train()
         self.target_net = Net(n_states, n_actions).to(device)
-        self.target_net.eval()
 
         self.buffer = replayer_buffer
         self.mini_batch = mini_batch
@@ -92,12 +90,12 @@ class Double_DQN:
         
         #eps-decay
         self.eps = self.eps_begin + (self.eps_end - self.eps_begin) * np.exp(-epoch / self.epsilon_decay)
-
+    
         if np.random.uniform() < self.eps:
             return np.random.randint(0, self.n_actions)
 
         else:
-            obs = Variable(torch.FloatTensor([obs])).to(self.device)
+            obs = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
             q_value = self.target_net(obs)
             return q_value.argmax().item()
 
@@ -107,8 +105,6 @@ class Double_DQN:
 
     def learn(self):
 
-        self.learning_step += 1
-        
         if self.learning_step % self.update_step == 0:  #每update_step步更新targetnet
             self.update()
 
@@ -119,16 +115,16 @@ class Double_DQN:
         b_r = Variable(torch.FloatTensor(b_r)).to(self.device)
         b_s2 = Variable(torch.FloatTensor(b_s2)).to(self.device)
 
-        q_eval = self.eval_net(b_s1)
-        action = q_eval.argmax(1).unsqueeze(-1) # 第一个Q选出的动作
-        q_eval = q_eval.gather(1, b_a.unsqueeze(-1)).squeeze(-1)
-        q_next = self.target_net(b_s2).detach()
-        q_hat = b_r+ self.gamma * q_next.gather(1, action).squeeze(-1) # 结合第一个Q选出的动作，用第二个Q更新策略
+        q_eval = self.eval_net(b_s1).gather(1, b_a.unsqueeze(-1)).squeeze(-1)
+
+        q_next = self.target_net(b_s2).max(1)[0].detach()
+        q_hat = b_r + self.gamma * q_next
 
         loss = self.criterion(q_eval, q_hat)
-
+            
         self.optimizer.zero_grad()
-
         loss.backward()
         self.optimizer.step()
+        
+        self.learning_step += 1
         return loss

@@ -24,12 +24,10 @@ class PolicyNet(nn.Module):
         return all_act, all_act_prob
 
 class PolicyGradient():
-    '''
-    策略梯度法
-    '''
+
     def __init__(self, n_action, learning_rate=0.01, reward_decay=0.95, device=torch.device('cuda')):
         
-        self.n_actions = n_action   # n_actions 表示动作的
+        self.n_actions = n_action   # n_actions dim of actions
         self.lr = learning_rate
         self.gamma = reward_decay
         self.net = PolicyNet(n_action).to(device)
@@ -85,7 +83,7 @@ class PolicyGradient():
         # discount and normalize episode reward
         ep_rs = self.compute_norm_rewards()
 
-        # 训练一回合
+        # train one epoch
         b_obs = Variable(torch.FloatTensor(self.ep_obs)).to(self.device)
         b_act = Variable(torch.LongTensor(self.ep_act)).to(self.device)
         b_rew = Variable(torch.FloatTensor(ep_rs)).to(self.device)
