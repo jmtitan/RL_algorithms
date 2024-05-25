@@ -5,32 +5,30 @@ from torch.autograd.variable import Variable
 from torch.optim.adam import Adam
 from collections import deque
 
-class SumTree():
+class SumTree:
     '''
-    建立 tree 和 data,
-    因为 SumTree 有特殊的数据结构,
-    所以两者都能用一个一维 np.array 来存储
+    Build tree and data,
+    Because SumTree has a special data structure,
+    Both can be stored using a one-dimensional np.array
 
-    Jaromír Janisch的版本以及莫凡python都将transition融入sumtree，
-    我将sumtree解耦
+    This version decouples sumtree from the transition,
+    Unlike the version by Jaromír Janisch and Morvan Python.
     '''
     def __init__(self, capacity):
         '''
         args:
-            capacity: sumtree根节点的数据容量
+            capacity: the capacity of the root node of the sumtree
         '''
         self.capacity = capacity
         self.tree = np.zeros(2 * capacity - 1)
         self.ptr = 0
-        
-    # 当有新 sample 时, 添加进 tree 和 data
+
     def add(self, p):
         '''
-        当有新 sample 时, 添加进 tree 和 data
+        Add a new sample to the tree and data
         args:
-            p: sample的优先级
+            p: priority of the sample
         '''
-
         tree_idx = self.ptr + self.capacity - 1
         self.update(tree_idx, p)
         self.ptr += 1
@@ -38,24 +36,22 @@ class SumTree():
         if self.ptr >= self.capacity:
             self.ptr = 0
 
-
     def update(self, tree_idx, p):
         '''
-        当 sample 被 train, 有了新的 TD-error, 就在 tree 中更新
+        Update the tree when a sample has a new TD-error
         args:
-            tree_idx: 树节点下标
-            p: 优先级数据
+            tree_idx: index of the tree node
+            p: priority value
         '''
-
         modify = p - self.tree[tree_idx]
         self.tree[tree_idx] = p
-        while tree_idx != 0:    # 循环更改该路径所有涉及节点
+        while tree_idx != 0:    # Update all nodes along the path
             tree_idx = (tree_idx - 1) // 2
             self.tree[tree_idx] += modify
 
     def get_leaf(self, v):
         '''
-        根据选取的 v 点抽取样本
+        Extract a sample based on the selected v point
         Tree structure and array storage:
         Tree index:
              0         -> storing priority sum
@@ -67,16 +63,16 @@ class SumTree():
         [0,1,2,3,4,5,6]
 
         args:
-            v: 选取点
+            v: selected point
         '''
         parent_idx = 0
-        while True:     # 莫凡python的方法，比递归效率更高
-            cl_idx = 2 * parent_idx + 1         # 左叶子节点（奇数） 右（偶数）
+        while True:     # Morvan Python's method, more efficient than recursion
+            cl_idx = 2 * parent_idx + 1         # Left leaf node (odd), right (even)
             cr_idx = cl_idx + 1
-            if cl_idx >= len(self.tree):        # 比左叶子节点大则选择左， 否则选右
+            if cl_idx >= len(self.tree):        # Select left if larger than left leaf node, otherwise select right
                 leaf_idx = parent_idx
                 break
-            else:       # 向下搜索，找到比 v 大的节点
+            else:       # Search down, find the node larger than v
                 if v <= self.tree[cl_idx]:
                     parent_idx = cl_idx
                 else:
@@ -89,20 +85,20 @@ class SumTree():
     @property
     def total_p(self):
         '''
-        获取 sum (priorities) (只读属性)
+        Get sum (priorities) (read-only property)
         '''
         return self.tree[0]
 
 class Priority_Replay_buffer:
     '''
-    优先经验采样池
+    Priority Replay buffer: save experiences for future training 
     '''
 
     def __init__(self, N, n_states):
         '''
-        经验池初始化
         args:
-            N: 容量
+            N: capacity
+            n_states: states dim
         '''
         self.capacity = N
         self.counter = 0
@@ -113,11 +109,11 @@ class Priority_Replay_buffer:
         self.alpha = 0.6 # [0~1] 将TD_error转换为优先级
         self.beta = 0.4  # 优先级采样初始值， 最终变为1
         self.beta_increment_per_sampling = 0.001 #采样上升幅度
-        self.abs_err_upper = 1  # abs error剪枝上限
+        self.abs_err_upper = 1  # |error| upperbound
 
     def add(self, s1, a, r, s2):
         '''
-        经验获取
+        Add experience 
         args:
             s1: obs (np.array, float, len=4)
             a:  action (int)
@@ -135,19 +131,19 @@ class Priority_Replay_buffer:
 
     def sample(self, n):
         '''
-        优先经验采样
+        Priority Experience Sampling
         args:
             n: minibatch
         '''
         b_idx, b_memory, ISWeights = np.empty((n,), dtype=np.int32), np.empty((n, self.buf[0].size)), np.empty((n, 1))
-        pri_seg = self.sumtree.total_p / n       # 优先级区间分割
+        pri_seg = self.sumtree.total_p / n       # separate the data via Priority
         self.beta = np.min([1., self.beta + self.beta_increment_per_sampling])  # max = 1
 
         min_prob = np.min(self.sumtree.tree[-self.sumtree.capacity:]) / self.sumtree.total_p     # for later calculate ISweight
 
         for i in range(n):
-            a, b = pri_seg * i, pri_seg * (i + 1) # 按区间划分， a、b为区间上下限
-            v = np.random.uniform(a, b)             #在区间随机采样一个值
+            a, b = pri_seg * i, pri_seg * (i + 1) # separate by sections， a、b are the lower/upper bound of the section
+            v = np.random.uniform(a, b)             #randomly sample from the section
             idx, p, data_idx = self.sumtree.get_leaf(v)
             data = self.buf[data_idx]
             prob = p / self.sumtree.total_p
@@ -188,9 +184,7 @@ class Net(nn.Module):
 
 
 class DuelingNet(nn.Module):
-    '''
-    DuelingDQN网络结构
-    '''
+
     def __init__(self, n_states, n_actions):
         super(DuelingNet, self).__init__()
         self.n_actions = n_actions
@@ -234,7 +228,7 @@ class DuelingDQN:
         self.epsilon_decay = 100
 
         self.update_step = net_update_frequncy
-        self.learning_step = 0 # 判断更新target net
+        self.learning_step = 0 # flag for whether updating target net
         self.device = device
 
         self.eval_net = DuelingNet(n_states, n_actions).to(device)
@@ -248,9 +242,7 @@ class DuelingDQN:
         self.optimizer = Adam(self.eval_net.parameters(), lr=learning_rate)
     
     def choose_action(self, obs, epoch):
-        '''
-        动作选择
-        '''
+
         #eps-decay
         self.eps = self.eps_begin + (self.eps_end - self.eps_begin) * np.exp(-epoch / self.epsilon_decay)
 
@@ -258,40 +250,43 @@ class DuelingDQN:
             return np.random.randint(0, self.n_actions)
 
         else:
-            obs = Variable(torch.FloatTensor([obs])).to(self.device)
+            obs = torch.FloatTensor([obs]).to(self.device)
             q_value = self.target_net(obs)
             return q_value.argmax().cpu().data.numpy()
 
     def update(self):
         '''
-        目标Q网络更新
+        update target Q network
         '''
         state_dict = self.eval_net.state_dict()
         self.target_net.load_state_dict(state_dict)
 
     def criterion(self, q_eval, q_hat, ISWeights, tree_idx):
         '''
-        计算loss同时更新PER的sumtree
+        Compute loss and update sumtree in PER
         '''
-        abs_tderror = torch.abs(q_eval - q_hat) # 更新sumtree
+        abs_tderror = torch.abs(q_eval - q_hat) # update sumtree
         self.buffer.batch_update(tree_idx, abs_tderror)
         loss = (torch.pow(abs_tderror, 2) * ISWeights).mean()
         return loss
 
     def learn(self):
         '''
-        学习步骤
+        learn steps:
+        1. update target Q net
+        2. sample from PER
+        3. train actor Q net
         '''
-        if self.learning_step % self.update_step == 0:  #每update_step步更新targetnet
+        if self.learning_step % self.update_step == 0:  # update targetnet every update_step
             self.update()
 
         tree_idx, batch_memory, ISWeights = self.buffer.sample(self.mini_batch)
         ISWeights = torch.as_tensor(ISWeights / np.max(ISWeights),dtype=torch.float32,device=self.device)
 
-        b_s1 = Variable(torch.FloatTensor(batch_memory[:, :self.n_states])).to(self.device)
-        b_a = Variable(torch.LongTensor(batch_memory[:, self.n_states].astype(int))).to(self.device)
-        b_r = Variable(torch.FloatTensor(batch_memory[:, self.n_states+1])).to(self.device)
-        b_s2 = Variable(torch.FloatTensor(batch_memory[:, self.n_states+2:])).to(self.device)
+        b_s1 = torch.FloatTensor(batch_memory[:, :self.n_states]).to(self.device)
+        b_a = torch.LongTensor(batch_memory[:, self.n_states].astype(int)).to(self.device)
+        b_r = torch.FloatTensor(batch_memory[:, self.n_states+1]).to(self.device)
+        b_s2 = torch.FloatTensor(batch_memory[:, self.n_states+2:]).to(self.device)
 
         q_eval = self.eval_net(b_s1).gather(1, b_a.unsqueeze(-1)).squeeze(-1)
 

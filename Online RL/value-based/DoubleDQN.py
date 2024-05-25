@@ -97,7 +97,7 @@ class Double_DQN:
             return np.random.randint(0, self.n_actions)
 
         else:
-            obs = Variable(torch.FloatTensor([obs])).to(self.device)
+            obs = torch.FloatTensor([obs]).to(self.device)
             q_value = self.target_net(obs)
             return q_value.argmax().item()
 
@@ -114,10 +114,10 @@ class Double_DQN:
 
         b_s1, b_a, b_r, b_s2 = self.buffer.sample(self.mini_batch)
 
-        b_s1 = Variable(torch.FloatTensor(b_s1)).to(self.device)
-        b_a = Variable(torch.LongTensor(b_a)).to(self.device)
-        b_r = Variable(torch.FloatTensor(b_r)).to(self.device)
-        b_s2 = Variable(torch.FloatTensor(b_s2)).to(self.device)
+        b_s1 = torch.FloatTensor(b_s1).to(self.device)
+        b_a = torch.LongTensor(b_a).to(self.device)
+        b_r = torch.FloatTensor(b_r).to(self.device)
+        b_s2 = torch.FloatTensor(b_s2).to(self.device)
 
         q_eval = self.eval_net(b_s1)
         action = q_eval.argmax(1).unsqueeze(-1) # Choose action from the maximum prob. in first Q net

@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import random
 from torch import nn
-from torch.autograd import Variable
 from torch.optim import Adam
 from collections import deque
 
@@ -110,10 +109,10 @@ class DQN:
 
         b_s1, b_a, b_r, b_s2 = self.buffer.sample(self.mini_batch)
 
-        b_s1 = Variable(torch.FloatTensor(b_s1)).to(self.device)
-        b_a = Variable(torch.LongTensor(b_a)).to(self.device)
-        b_r = Variable(torch.FloatTensor(b_r)).to(self.device)
-        b_s2 = Variable(torch.FloatTensor(b_s2)).to(self.device)
+        b_s1 = torch.FloatTensor(b_s1).to(self.device)
+        b_a = torch.LongTensor(b_a).to(self.device)
+        b_r = torch.FloatTensor(b_r).to(self.device)
+        b_s2 = torch.FloatTensor(b_s2).to(self.device)
 
         q_eval = self.eval_net(b_s1).gather(1, b_a.unsqueeze(-1)).squeeze(-1)
 

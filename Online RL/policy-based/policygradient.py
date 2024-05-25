@@ -1,9 +1,7 @@
 import torch
 import numpy as np
 from torch import nn
-from torch.autograd import Variable
 from torch.optim import Adam
-import torch.nn.functional as F
 
 class PolicyNet(nn.Module):
     def __init__(self, n_actions):
@@ -56,7 +54,7 @@ class PolicyGradient():
     def choose_action(self, obs):
 
         with torch.no_grad():
-            _, prob_weights = self.net(Variable(torch.FloatTensor(obs)).to(self.device))
+            _, prob_weights = self.net(torch.FloatTensor(obs).to(self.device))
             prob_weights = prob_weights.cpu().numpy()
             action = np.random.choice(range(prob_weights.shape[0]), p=prob_weights.ravel())
 
@@ -84,9 +82,9 @@ class PolicyGradient():
         ep_rs = self.compute_norm_rewards()
 
         # train one epoch
-        b_obs = Variable(torch.FloatTensor(self.ep_obs)).to(self.device)
-        b_act = Variable(torch.LongTensor(self.ep_act)).to(self.device)
-        b_rew = Variable(torch.FloatTensor(ep_rs)).to(self.device)
+        b_obs = torch.FloatTensor(self.ep_obs).to(self.device)
+        b_act = torch.LongTensor(self.ep_act).to(self.device)
+        b_rew = torch.FloatTensor(ep_rs).to(self.device)
 
         all_act, all_act_prob = self.net(b_obs)
         loss = self.loss(all_act, all_act_prob, b_act, b_rew)
